@@ -22,6 +22,11 @@ float startMouse = true;
 //floor :3
 GLuint floorVAO;
 
+//shadow map
+GLuint shadowFBO;
+GLuint shadowTex;
+const int SHADOW_SIZE = 2048;
+
 void initFloor() {
 	float size = 20.0f;
 	float y = -2.0f;
@@ -49,6 +54,29 @@ void initFloor() {
 	glVertexAttribPointer(1, 4, GL_FLOAT, false, 8 * sizeof(float), (void*)(4 * sizeof(float)));
 
 	glBindVertexArray(0);
+}
+
+void initShadowMap() {
+    glGenTextures(1, &shadowTex);
+    glBindTexture(GL_TEXTURE_2D, shadowTex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT,
+                 SHADOW_SIZE, SHADOW_SIZE, 0,
+                 GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+    float border[] = {1,1,1,1};
+    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, border);
+
+    glGenFramebuffers(1, &shadowFBO);
+    glBindFramebuffer(GL_FRAMEBUFFER, shadowFBO);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, shadowTex, 0);
+    glDrawBuffer(GL_NONE);
+    glReadBuffer(GL_NONE);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
@@ -90,6 +118,7 @@ void initOpenGLProgram(GLFWwindow* window) {
 	glEnable(GL_DEPTH_TEST);
 	rat = Models::ObjModel("RAT1.obj");
 	initFloor();
+	initShadowMap();
 	glfwSetCursorPosCallback(window, mouse_callback);
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 }
@@ -100,66 +129,84 @@ void freeOpenGLProgram(GLFWwindow* window) {
 }
 
 void drawScene(GLFWwindow* window) {
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    // macierz światła
+    float time = glfwGetTime();
+	float lightRadius = 8.0f;
+	glm::vec3 lightPos = glm::vec3(
+		sin(time) * lightRadius,
+		10.0f,
+		cos(time) * lightRadius
+);
+    glm::mat4 LP = glm::ortho(-20.0f, 20.0f, -20.0f, 20.0f, 1.0f, 50.0f);
+    glm::mat4 LV = glm::lookAt(lightPos, glm::vec3(0,0,0), glm::vec3(0,1,0));
+    glm::mat4 M  = glm::mat4(1.0f);
 
-	float time = glfwGetTime();
+    // shadow map
+    glViewport(0, 0, SHADOW_SIZE, SHADOW_SIZE);
+    glBindFramebuffer(GL_FRAMEBUFFER, shadowFBO);
+    glClear(GL_DEPTH_BUFFER_BIT);
 
-	glm::vec3 front;
-	front.x = cos(camPitch) * sin(camYaw);
-	front.y = sin(camPitch);
-	front.z = cos(camPitch) * cos(camYaw);
-	front = glm::normalize(front);
+    spShadow->use();
+    glUniformMatrix4fv(spShadow->u("LP"), 1, false, glm::value_ptr(LP));
+    glUniformMatrix4fv(spShadow->u("LV"), 1, false, glm::value_ptr(LV));
 
-	static glm::vec3 camPos = glm::vec3(0.0f, 2.0f, 10.0f);
-	glm::vec3 right = glm::normalize(glm::cross(front, glm::vec3(0.0f, 1.0f, 0.0f)));
-	float speed = 0.05f;
+    glUniformMatrix4fv(spShadow->u("M"), 1, false, glm::value_ptr(M));
+    rat.drawSolid();
 
+    glUniformMatrix4fv(spShadow->u("M"), 1, false, glm::value_ptr(glm::mat4(1.0f)));
+    glBindVertexArray(floorVAO);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    glBindVertexArray(0);
 
-	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) camPos += speed * front;
-	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) camPos -= speed * front;
-	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) camPos -= speed * right;
-	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) camPos += speed * right;
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-	glm::mat4 P = glm::perspective(glm::radians(50.0f), 800.0f/600.0f, 0.1f, 100.0f);
+	// everything else
 
-	//static camera if u want :3
-	// glm::mat4 V = glm::lookAt(
-    //     glm::vec3(0.0f, 2.0f, 10.0f),
-    //     glm::vec3(0.0f, 0.0f,  0.0f),
-    //     glm::vec3(0.0f, 1.0f,  0.0f)
-    // );
+    glViewport(0, 0, 1920, 1080);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	//dynamic camera :3
-	glm::mat4 V = glm::lookAt(
-		camPos,
-		camPos + front,
-		glm::vec3(0.0f, 1.0f, 0.0f)
-	);
+    glm::vec3 front;
+    front.x = cos(camPitch) * sin(camYaw);
+    front.y = sin(camPitch);
+    front.z = cos(camPitch) * cos(camYaw);
+    front = glm::normalize(front);
 
-    glm::mat4 M = glm::mat4(1.0f);
-	// M = glm::rotate(M, time, glm::vec3(0.0f, 1.0f, 0.0f));
+    static glm::vec3 camPos = glm::vec3(0.0f, 2.0f, 10.0f);
+    glm::vec3 right = glm::normalize(glm::cross(front, glm::vec3(0.0f, 1.0f, 0.0f)));
+    float speed = 0.05f;
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) camPos += speed * front;
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) camPos -= speed * front;
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) camPos -= speed * right;
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) camPos += speed * right;
 
-	//shader
+    glm::mat4 P = glm::perspective(glm::radians(50.0f), 1920.0f/1080.0f, 0.1f, 100.0f);
+    glm::mat4 V = glm::lookAt(camPos, camPos + front, glm::vec3(0.0f, 1.0f, 0.0f));
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, shadowTex);
+
     spLambert->use();
-    glUniformMatrix4fv(spLambert->u("P"), 1, false, glm::value_ptr(P));
-    glUniformMatrix4fv(spLambert->u("V"), 1, false, glm::value_ptr(V));
-	glUniform4f(spLambert->u("lightDir"), 255/255.0f, 240/255.0f, 40/255.0f, 1.0f);
-	
-	glUniformMatrix4fv(spLambert->u("M"), 1, false, glm::value_ptr(M));
-	//floor
-	glUniformMatrix4fv(spLambert->u("M"), 1, false, glm::value_ptr(glm::mat4(1.0f)));
-	glUniform4f(spLambert->u("color"), 0.3f, 0.3f, 0.3f, 1.0f);
-	glBindVertexArray(floorVAO);
-	glDrawArrays(GL_TRIANGLES, 0, 6);
-	glBindVertexArray(0);
+    glUniform1i(spLambert->u("shadowMap"), 0);
+    glUniformMatrix4fv(spLambert->u("P"),  1, false, glm::value_ptr(P));
+    glUniformMatrix4fv(spLambert->u("V"),  1, false, glm::value_ptr(V));
+    glUniformMatrix4fv(spLambert->u("LP"), 1, false, glm::value_ptr(LP));
+    glUniformMatrix4fv(spLambert->u("LV"), 1, false, glm::value_ptr(LV));
+    glUniform4f(spLambert->u("lightDir"),
+        lightPos.x, lightPos.y, lightPos.z, 0.0f);
 
+    // floor
+    glUniformMatrix4fv(spLambert->u("M"), 1, false, glm::value_ptr(glm::mat4(1.0f)));
+    glUniform4f(spLambert->u("color"), 0.3f, 0.3f, 0.3f, 1.0f);
+    glBindVertexArray(floorVAO);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    glBindVertexArray(0);
 
-	glUniformMatrix4fv(spLambert->u("M"), 1, false, glm::value_ptr(M));
-    glUniform4f(spLambert->u("color"),    228/255.0f, 0/255.0f, 124/255.0f, 1.0f);
+    // szczur
+    glUniformMatrix4fv(spLambert->u("M"), 1, false, glm::value_ptr(M));
+    glUniform4f(spLambert->u("color"), 228/255.0f, 0/255.0f, 124/255.0f, 1.0f);
+    rat.drawSolid();
 
-	rat.drawSolid();
-
-	glfwSwapBuffers(window);
+    glfwSwapBuffers(window);
 }
 
 int main(void) {

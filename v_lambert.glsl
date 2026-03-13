@@ -6,10 +6,14 @@ layout(location=1) in vec4 normal;
 uniform mat4 P;
 uniform mat4 V;
 uniform mat4 M;
+uniform mat4 LP;
+uniform mat4 LV;
 
 out vec4 interpNormal;
+out vec4 shadowCoord;
 
 void main() {
     interpNormal = normalize(M * normal);
+    shadowCoord = LP * LV * M * vertex;
     gl_Position = P * V * M * vertex;
 }

@@ -1,12 +1,15 @@
 #include "shaderprogram.h"
 ShaderProgram* spLambert = nullptr;
+ShaderProgram* spShadow = nullptr;
 
 void initShaders() {
 	spLambert = new ShaderProgram("v_lambert.glsl", NULL, "f_lambert.glsl");
+	spShadow  = new ShaderProgram("v_shadow.glsl",  NULL, "f_shadow.glsl");
 }
 
 void freeShaders() {
 	delete spLambert;
+	delete spShadow;
 }
 
 char* ShaderProgram::readFile(const char* fileName) {
