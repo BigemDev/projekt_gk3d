@@ -25,13 +25,10 @@ namespace Models {
         delete[] vertices;
         delete[] normals;
         delete[] texCoords;
-        // vertexNormals i colors nie są używane w tym loaderze
     }
 
-    // Rozbija jeden wierzchołek twarzy "v/vt/vn" lub "v//vn" lub "v/vt" lub "v"
     static void parseFaceVertex(const char* token, int& vi, int& ti, int& ni) {
         vi = ti = ni = 0;
-        // sscanf radzi sobie z brakującymi polami
         if (sscanf(token, "%d/%d/%d", &vi, &ti, &ni) == 3) return;
         if (sscanf(token, "%d//%d",   &vi, &ni)      == 2) return;
         if (sscanf(token, "%d/%d",    &vi, &ti)       == 2) return;
@@ -45,12 +42,10 @@ namespace Models {
             return;
         }
 
-        // Surowe dane z pliku OBJ (indeksowane od 1)
         std::vector<glm::vec4> rawV;   // pozycje
         std::vector<glm::vec2> rawVT;  // UV
         std::vector<glm::vec4> rawVN;  // normalne
 
-        // Wypłaszczone dane gotowe do rysowania (trojki)
         std::vector<glm::vec4> outV;
         std::vector<glm::vec4> outVN;
         std::vector<glm::vec2> outVT;
@@ -75,8 +70,7 @@ namespace Models {
                 rawV.push_back(glm::vec4(x, y, z, 1.0f));
 
             } else if (line[0] == 'f' && line[1] == ' ') {
-                // Zbierz tokeny wierzchołków twarzy (obsługuje tri i quady)
-                std::vector<glm::ivec3> faceVerts; // (vi, ti, ni) – indeksy 1-based
+                std::vector<glm::ivec3> faceVerts;
                 char* ctx = nullptr;
                 char tmp[512];
                 strncpy(tmp, line + 2, sizeof(tmp));
@@ -88,7 +82,6 @@ namespace Models {
                     tok = strtok_r(nullptr, " \t\r\n", &ctx);
                 }
 
-                // Triangulacja face fan: (0,1,2), (0,2,3), ...
                 for (int i = 1; i + 1 < (int)faceVerts.size(); i++) {
                     int idx[3] = {0, i, i + 1};
                     for (int j = 0; j < 3; j++) {
@@ -115,7 +108,6 @@ namespace Models {
         printf("ObjModel: wczytano '%s' (%d wierzchołków)\n",
                filePath.c_str(), vertexCount);
 
-        // Skopiuj do flat array (float*) – tak jak robią inne modele
         vertices  = new float[vertexCount * 4];
         normals   = new float[vertexCount * 4];
         texCoords = new float[vertexCount * 2];
@@ -135,7 +127,6 @@ namespace Models {
             texCoords[i*2+1] = outVT[i].y;
         }
 
-        // vertexNormals = normals (per-vertex normalne z pliku OBJ są już smooth)
         vertexNormals = normals;
 
         glGenVertexArrays(1, &vao);
