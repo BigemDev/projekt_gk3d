@@ -89,17 +89,31 @@ unsigned int loadSkybox() {
 	
 	glGenTextures(1, &texID);
 	glBindTexture(GL_TEXTURE_CUBE_MAP, texID);
-	std::vector<std::string> textures={"textures/x_pos.png","textures/x_neg.png","textures/z_pos.png", "textures/z_neg.png","textures/y_pos.png","textures/y_neg.png"};
 
+	// stbi_set_flip_vertically_on_load(false);
+
+	std::vector<std::string> textures = {
+		"textures/x_pos.png",
+		"textures/x_neg.png",
+		"textures/z_pos.png",
+		"textures/z_neg.png",
+		"textures/y_pos.png",
+		"textures/y_neg.png"
+	};
 
 	int w, h, nC;
-	for(unsigned int i = 0; i < textures.size(); i++) {
-		unsigned char *data = stbi_load(textures[i].c_str(), &w, &h, &nC, 0);
-		if(data) {
-            // FIX 1: was 'width, height' — corrected to 'w, h'
-            glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,  0, GL_RGB, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+	for (unsigned int i = 0; i < textures.size(); i++) {
+		unsigned char* data = stbi_load(textures[i].c_str(), &w, &h, &nC, 3);
+		if (data) {
+			glTexImage2D(
+				GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
+				0, GL_RGB, w, h, 0,
+				GL_RGB, GL_UNSIGNED_BYTE, data
+			);
 			stbi_image_free(data);
 		} else {
+			fprintf(stderr, "Failed to load cubemap face: %s\n  stbi: %s\n",
+				textures[i].c_str(), stbi_failure_reason());
 			stbi_image_free(data);
 		}
 	}
@@ -108,14 +122,14 @@ unsigned int loadSkybox() {
 	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE); 	
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
 
 	return texID;
 }
 
 
 void initSkybox() {
-		float vertices[] = {
+	float vertices[] = {
 		-1.0f,  1.0f, -1.0f,
 		-1.0f, -1.0f, -1.0f,
 		 1.0f, -1.0f, -1.0f,
@@ -157,7 +171,7 @@ void initSkybox() {
 		 1.0f, -1.0f, -1.0f,
 		-1.0f, -1.0f,  1.0f,
 		 1.0f, -1.0f,  1.0f
-};
+	};
 	
 	GLuint vbo;
 	glGenVertexArrays(1, &skyboxVAO);
@@ -231,7 +245,7 @@ void drawScene(GLFWwindow* window) {
 		sin(time) * lightRadius,
 		10.0f,
 		cos(time) * lightRadius
-);
+	);
     glm::mat4 LP = glm::ortho(-20.0f, 20.0f, -20.0f, 20.0f, 1.0f, 50.0f);
     glm::mat4 LV = glm::lookAt(lightPos, glm::vec3(0,0,0), glm::vec3(0,1,0));
     glm::mat4 M  = glm::mat4(1.0f);
@@ -278,9 +292,7 @@ void drawScene(GLFWwindow* window) {
     glm::mat4 V = glm::lookAt(camPos, camPos + front, glm::vec3(0.0f, 1.0f, 0.0f));
 
     glActiveTexture(GL_TEXTURE0);
-
-    
-glBindTexture(GL_TEXTURE_2D, shadowTex);
+    glBindTexture(GL_TEXTURE_2D, shadowTex);
 
     spLambert->use();
     glUniform1i(spLambert->u("shadowMap"), 0);
@@ -303,18 +315,24 @@ glBindTexture(GL_TEXTURE_2D, shadowTex);
     glUniform4f(spLambert->u("color"), 228/255.0f, 0/255.0f, 124/255.0f, 1.0f);
     rat.drawSolid();
 
-    glDepthMask(GL_FALSE);
-    spSkybox->use();
-    glUniformMatrix4fv(spSkybox->u("projection"),  1, false, glm::value_ptr(P));
-    glm::mat4 skyV = glm::mat4(glm::mat3(V));
-    glUniformMatrix4fv(spSkybox->u("view"),  1, false, glm::value_ptr(skyV));
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxTex);
+
+	// this needs to go at the end
+	glDepthFunc(GL_LEQUAL);
+	glDepthMask(GL_FALSE);
+
+	spSkybox->use();
+	glm::mat4 skyV = glm::mat4(glm::mat3(V));
+	glUniformMatrix4fv(spSkybox->u("projection"), 1, false, glm::value_ptr(P));
+	glUniformMatrix4fv(spSkybox->u("view"),       1, false, glm::value_ptr(skyV));
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxTex);
 	glUniform1i(spSkybox->u("skybox"), 0);
-    glBindVertexArray(skyboxVAO);
-    glDrawArrays(GL_TRIANGLES, 0, 36);
-    glBindVertexArray(0);
-    glDepthMask(GL_TRUE);
+	glBindVertexArray(skyboxVAO);
+	glDrawArrays(GL_TRIANGLES, 0, 36);
+	glBindVertexArray(0);
+
+	glDepthMask(GL_TRUE);
+	glDepthFunc(GL_LESS);    
 
     glfwSwapBuffers(window);
 }
