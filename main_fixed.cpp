@@ -169,6 +169,8 @@ void initSkybox() {
 	glEnableVertexAttribArray(0);
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
 
+	// FIX 2: removed the glGenTextures/glBindTexture calls that were overwriting
+	// skyboxTex with a blank empty texture immediately after loadSkybox() filled it.
 	skyboxTex = loadSkybox();
 }
 
@@ -303,14 +305,15 @@ glBindTexture(GL_TEXTURE_2D, shadowTex);
     glUniform4f(spLambert->u("color"), 228/255.0f, 0/255.0f, 124/255.0f, 1.0f);
     rat.drawSolid();
 
+    // skybox — rendered last with depth write disabled so it always appears behind everything
     glDepthMask(GL_FALSE);
     spSkybox->use();
-    glUniformMatrix4fv(spSkybox->u("projection"),  1, false, glm::value_ptr(P));
+    glUniformMatrix4fv(spSkybox->u("P"),  1, false, glm::value_ptr(P));
+    // Strip translation from view matrix so skybox stays centered on the camera
     glm::mat4 skyV = glm::mat4(glm::mat3(V));
-    glUniformMatrix4fv(spSkybox->u("view"),  1, false, glm::value_ptr(skyV));
+    glUniformMatrix4fv(spSkybox->u("V"),  1, false, glm::value_ptr(skyV));
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxTex);
-	glUniform1i(spSkybox->u("skybox"), 0);
     glBindVertexArray(skyboxVAO);
     glDrawArrays(GL_TRIANGLES, 0, 36);
     glBindVertexArray(0);

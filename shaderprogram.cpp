@@ -6,6 +6,7 @@ void initShaders() {
 	spLambert = new ShaderProgram("v_lambert.glsl", NULL, "f_lambert.glsl");
 	spShadow  = new ShaderProgram("v_shadow.glsl",  NULL, "f_shadow.glsl");
 	spSkybox = new ShaderProgram("v_skybox.glsl", NULL, "f_skybox.glsl");
+	
 }
 
 void freeShaders() {
