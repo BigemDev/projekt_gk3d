@@ -18,12 +18,15 @@ FileExplorer explorer;
 
 //rat
 GLuint ratBaseTex;
+GLuint ratAtlasTex;
 glm::vec3 ratPos = glm::vec3(0.0f, 1.0f, 0.0f);
 float ratAngle = 0.0f;
 float ratSpeed = 2.0f;
 float ratTurnTimer = 0.0f;
 float ratTurnInterval = 2.0f;
 float lastTime = 0.0f;
+
+std::vector<glm::vec3> ratPositions;
 
 //camera :3
 float camYaw = 0.0f;
@@ -140,7 +143,13 @@ unsigned int loadSkybox() {
 
 	return texID;
 }
-
+void geneRatE(int num_rats){
+	for(int i=0; i<num_rats;i++){
+		float x= -20 + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/40));
+		float z= -20 + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/40));
+		ratPositions.push_back(glm::vec3(x,0,z));
+	}
+}
 
 void initSkybox() {
 	float vertices[] = {
@@ -213,6 +222,26 @@ void loadRatTexture(){
 			stbi_image_free(data);
 		} else {
 			fprintf(stderr, "Failed to load rat texture stbi: %s\n",
+				stbi_failure_reason());
+			stbi_image_free(data);
+		}
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
+
+	glGenTextures(1, &ratAtlasTex);
+	glBindTexture(GL_TEXTURE_2D, ratAtlasTex);
+	data = stbi_load("textures/atlas.png", &w, &h, &nC, 3);
+		if (data) {
+			glTexImage2D(
+				GL_TEXTURE_2D,
+				0, GL_RGB, w, h, 0,
+				GL_RGB, GL_UNSIGNED_BYTE, data
+			);
+			stbi_image_free(data);
+		} else {
+			fprintf(stderr, "Failed to load atlas texture stbi: %s\n",
 				stbi_failure_reason());
 			stbi_image_free(data);
 		}
@@ -308,6 +337,7 @@ void initOpenGLProgram(GLFWwindow* window) {
 	glEnable(GL_TEXTURE_2D);
 	rat = Models::ObjModel("RAT1.obj");
 	loadRatTexture();
+	geneRatE(3);
 	initFloor();
 	initShadowMap();
 	initPanel();
@@ -352,9 +382,12 @@ void drawScene(GLFWwindow* window) {
     spShadow->use();
     glUniformMatrix4fv(spShadow->u("LP"), 1, false, glm::value_ptr(LP));
     glUniformMatrix4fv(spShadow->u("LV"), 1, false, glm::value_ptr(LV));
-
     glUniformMatrix4fv(spShadow->u("M"), 1, false, glm::value_ptr(ratM));
+   // for (auto& pos : ratPositions) {
+//		glm::mat4 ratM = glm::translate(glm::mat4(1.0f), pos);
+//		glUniformMatrix4fv(spShadow->u("M"), 1, false, glm::value_ptr(ratM));
     rat.drawSolid();
+//	}
 
     glUniformMatrix4fv(spShadow->u("M"), 1, false, glm::value_ptr(glm::mat4(1.0f)));
     glBindVertexArray(floorVAO);
@@ -410,16 +443,27 @@ void drawScene(GLFWwindow* window) {
     glUniformMatrix4fv(spTl->u("LV"), 1, false, glm::value_ptr(LV));
 	glUniformMatrix4fv(spTl->u("P"), 1, false, glm::value_ptr(P));
     glUniformMatrix4fv(spTl->u("V"), 1, false, glm::value_ptr(V));
-    glUniformMatrix4fv(spTl->u("M"), 1, false, glm::value_ptr(ratM));
 	glUniform4f(spTl->u("lightDir"),
         lightPos.x, lightPos.y, lightPos.z, 0.0f);
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, ratBaseTex);
 	glActiveTexture(GL_TEXTURE0+1);
 	glBindTexture(GL_TEXTURE_2D, shadowTex);
+	glActiveTexture(GL_TEXTURE0+2);
+	glBindTexture(GL_TEXTURE_2D, ratAtlasTex);
 	glUniform1i(spTl->u("tex"), 0);
 	glUniform1i(spTl->u("shadowMap"), 1);
-    rat.drawSolid();
+	glUniform1i(spTl->u("atlas"), 2);
+	glUniform4f(spTl->u("lightDir"),
+        lightPos.x, lightPos.y, lightPos.z, 0.0f);	
+//	for (auto& pos : ratPositions) {
+//		glm::mat4 ratM = glm::translate(glm::mat4(1.0f), pos);
+//		glm::vec2 texOffset=glm::vec2(pos.x+20/40,pos.z+20/40);
+//		glUniform3fv(spTl->u("texOffset"), 0, glm::value_ptr(texOffset));*/
+		glUniformMatrix4fv(spTl->u("M"), 1, false, glm::value_ptr(ratM));
+    	rat.drawSolid();
+	//}
+	
 
 
 	//panel
