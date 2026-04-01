@@ -18,7 +18,7 @@ out vec2 interpAtlasCoord;
 
 void main() {
     interpTexCoord = texCoord;
-    interpAtlasCoord = texCoord * 0.1+texOffset;
+    interpAtlasCoord = (texCoord * 0.1) + texOffset;
     interpNormal = normalize(M * normal);
     shadowCoord = LP * LV * M * vertex;
     gl_Position = P * V * M * vertex;

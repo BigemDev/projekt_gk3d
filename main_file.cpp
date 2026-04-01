@@ -19,14 +19,21 @@ FileExplorer explorer;
 //rat
 GLuint ratBaseTex;
 GLuint ratAtlasTex;
-glm::vec3 ratPos = glm::vec3(0.0f, 1.0f, 0.0f);
-float ratAngle = 0.0f;
-float ratSpeed = 2.0f;
-float ratTurnTimer = 0.0f;
-float ratTurnInterval = 2.0f;
-float lastTime = 0.0f;
+//
+struct Rat
+{
+	glm::vec3 pos = glm::vec3(0.0f, 1.0f, 0.0f);
+	glm::vec2 atlasOffset = glm::vec2(0.0f, 0.0f);
+	float angle = 0.0f;
+	float speed = 2.0f;
+	float turnTimer = 0.0f;
+	float turnInterval = 2.0f;
+	float lastTime = 0.0f;
+};
 
-std::vector<glm::vec3> ratPositions;
+
+
+std::vector<Rat> rats;
 
 //camera :3
 float camYaw = 0.0f;
@@ -144,10 +151,13 @@ unsigned int loadSkybox() {
 	return texID;
 }
 void geneRatE(int num_rats){
+	Rat r;
 	for(int i=0; i<num_rats;i++){
-		float x= -20 + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/40));
-		float z= -20 + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/40));
-		ratPositions.push_back(glm::vec3(x,0,z));
+		r.pos.x= -20 + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/40));
+		r.pos.z= -20 + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/40));
+		r.atlasOffset.x= static_cast <float> (rand()) /static_cast <float> (RAND_MAX);
+		r.atlasOffset.y= static_cast <float> (rand()) /static_cast <float> (RAND_MAX);
+		rats.push_back(r);
 	}
 }
 
@@ -251,23 +261,23 @@ void loadRatTexture(){
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
 }
 
-void updateRat() {
+void updateRat(Rat *rat) {
     float time = glfwGetTime();
-    float dt = time - lastTime;
-    lastTime = time;
+    float dt = time - rat->lastTime;
+    rat->lastTime = time;
 
-    ratTurnTimer -= dt;
-    if (ratTurnTimer <= 0.0f) {
-        ratAngle = ((float)rand() / RAND_MAX) * 2.0f * glm::pi<float>();
-        ratTurnTimer = ratTurnInterval + ((float)rand() / RAND_MAX) * 2.0f;
+    rat->turnTimer -= dt;
+    if (rat->turnTimer <= 0.0f) {
+        rat->angle = ((float)rand() / RAND_MAX) * 2.0f * glm::pi<float>();
+        rat->turnTimer = rat->turnInterval + ((float)rand() / RAND_MAX) * 2.0f;
     }
 
-    ratPos.x += cos(ratAngle) * ratSpeed * dt;
-    ratPos.z += sin(ratAngle) * ratSpeed * dt;
+    rat->pos.x += cos(rat->angle) * rat->speed * dt;
+    rat->pos.z += sin(rat->angle) * rat->speed * dt;
 
     float bound = 18.0f;
-    ratPos.x = glm::clamp(ratPos.x, -bound, bound);
-    ratPos.z = glm::clamp(ratPos.z, -bound, bound);
+    rat->pos.x = glm::clamp(rat->pos.x, -bound, bound);
+    rat->pos.z = glm::clamp(rat->pos.z, -bound, bound);
 }
 
 void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
@@ -337,7 +347,8 @@ void initOpenGLProgram(GLFWwindow* window) {
 	glEnable(GL_TEXTURE_2D);
 	rat = Models::ObjModel("RAT1.obj");
 	loadRatTexture();
-	geneRatE(3);
+	geneRatE(2);
+	rats[0].atlasOffset=glm::vec2(0.5,0.5);
 	initFloor();
 	initShadowMap();
 	initPanel();
@@ -371,8 +382,7 @@ void drawScene(GLFWwindow* window) {
     glm::mat4 LP = glm::ortho(-20.0f, 20.0f, -20.0f, 20.0f, 1.0f, 50.0f);
     glm::mat4 LV = glm::lookAt(lightPos, glm::vec3(0,0,0), glm::vec3(0,1,0));
     // glm::mat4 M  = glm::mat4(1.0f);
-	glm::mat4 ratM = glm::translate(glm::mat4(1.0f), ratPos);
-    ratM = glm::rotate(ratM, ratAngle, glm::vec3(0.0f, 1.0f, 0.0f));
+	
 
     // shadow map
     glViewport(0, 0, SHADOW_SIZE, SHADOW_SIZE);
@@ -382,12 +392,13 @@ void drawScene(GLFWwindow* window) {
     spShadow->use();
     glUniformMatrix4fv(spShadow->u("LP"), 1, false, glm::value_ptr(LP));
     glUniformMatrix4fv(spShadow->u("LV"), 1, false, glm::value_ptr(LV));
-    glUniformMatrix4fv(spShadow->u("M"), 1, false, glm::value_ptr(ratM));
-   // for (auto& pos : ratPositions) {
-//		glm::mat4 ratM = glm::translate(glm::mat4(1.0f), pos);
-//		glUniformMatrix4fv(spShadow->u("M"), 1, false, glm::value_ptr(ratM));
-    rat.drawSolid();
-//	}
+    //glUniformMatrix4fv(spShadow->u("M"), 1, false, glm::value_ptr(ratM));
+    for (auto& r : rats) {
+		glm::mat4 ratM = glm::translate(glm::mat4(1.0f), r.pos);
+    	ratM = glm::rotate(ratM, r.angle, glm::vec3(0.0f, 1.0f, 0.0f));
+		glUniformMatrix4fv(spShadow->u("M"), 1, false, glm::value_ptr(ratM));
+    	rat.drawSolid();
+	}
 
     glUniformMatrix4fv(spShadow->u("M"), 1, false, glm::value_ptr(glm::mat4(1.0f)));
     glBindVertexArray(floorVAO);
@@ -453,16 +464,14 @@ void drawScene(GLFWwindow* window) {
 	glBindTexture(GL_TEXTURE_2D, ratAtlasTex);
 	glUniform1i(spTl->u("tex"), 0);
 	glUniform1i(spTl->u("shadowMap"), 1);
-	glUniform1i(spTl->u("atlas"), 2);
-	glUniform4f(spTl->u("lightDir"),
-        lightPos.x, lightPos.y, lightPos.z, 0.0f);	
-//	for (auto& pos : ratPositions) {
-//		glm::mat4 ratM = glm::translate(glm::mat4(1.0f), pos);
-//		glm::vec2 texOffset=glm::vec2(pos.x+20/40,pos.z+20/40);
-//		glUniform3fv(spTl->u("texOffset"), 0, glm::value_ptr(texOffset));*/
+	glUniform1i(spTl->u("atlas"), 2);	
+	for (auto& r : rats) {
+		glm::mat4 ratM = glm::translate(glm::mat4(1.0f), r.pos);
+		ratM = glm::rotate(ratM,r.angle,glm::vec3(0, 1, 0));
+		glUniform2fv(spTl->u("texOffset"), 1, glm::value_ptr(r.atlasOffset));
 		glUniformMatrix4fv(spTl->u("M"), 1, false, glm::value_ptr(ratM));
     	rat.drawSolid();
-	//}
+	}
 	
 
 
@@ -533,7 +542,9 @@ int main(void) {
 	while (!glfwWindowShouldClose(window)) {
 		if(glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
 			glfwSetWindowShouldClose(window, true);
-		updateRat();
+		for(auto& r:rats){
+			updateRat(&r);
+		}
 		drawScene(window);
 		glfwPollEvents();
 	}
