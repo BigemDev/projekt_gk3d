@@ -3,12 +3,14 @@ ShaderProgram* spLambert = nullptr;
 ShaderProgram* spShadow = nullptr;
 ShaderProgram* spSkybox = nullptr;
 ShaderProgram* spTexture = nullptr;
+ShaderProgram* spTl = nullptr;
 
 void initShaders() {
 	spLambert = new ShaderProgram("v_lambert.glsl", NULL, "f_lambert.glsl");
 	spShadow  = new ShaderProgram("v_shadow.glsl",  NULL, "f_shadow.glsl");
 	spSkybox = new ShaderProgram("v_skybox.glsl", NULL, "f_skybox.glsl");
 	spTexture = new ShaderProgram("v_texture.glsl", NULL, "f_texture.glsl");
+	spTl = new ShaderProgram("v_texturelambert.glsl", NULL, "f_texturelambert.glsl");
 }
 
 void freeShaders() {

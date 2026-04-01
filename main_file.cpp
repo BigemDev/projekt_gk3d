@@ -14,6 +14,7 @@
 
 #include "objmodel.h"
 Models::ObjModel rat;
+GLuint ratBaseTex;
 FileExplorer explorer;
 
 //camera :3
@@ -189,7 +190,28 @@ void initSkybox() {
 
 	skyboxTex = loadSkybox();
 }
-
+void loadRatTexture(){
+	glGenTextures(1, &ratBaseTex);
+	glBindTexture(GL_TEXTURE_2D, ratBaseTex);
+	int w, h, nC;
+	unsigned char* data = stbi_load("textures/texture_core.png", &w, &h, &nC, 3);
+		if (data) {
+			glTexImage2D(
+				GL_TEXTURE_2D,
+				0, GL_RGB, w, h, 0,
+				GL_RGB, GL_UNSIGNED_BYTE, data
+			);
+			stbi_image_free(data);
+		} else {
+			fprintf(stderr, "Failed to load rat texture stbi: %s\n",
+				stbi_failure_reason());
+			stbi_image_free(data);
+		}
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
+}
 void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
 	if (startMouse) {
 		ltX = xpos;
@@ -256,6 +278,7 @@ void initOpenGLProgram(GLFWwindow* window) {
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_TEXTURE_2D);
 	rat = Models::ObjModel("RAT1.obj");
+	loadRatTexture();
 	initFloor();
 	initShadowMap();
 	initPanel();
@@ -345,13 +368,26 @@ void drawScene(GLFWwindow* window) {
     glBindVertexArray(0);
 
     // szczur
-    glUniformMatrix4fv(spLambert->u("M"), 1, false, glm::value_ptr(M));
-    glUniform4f(spLambert->u("color"), 228/255.0f, 0/255.0f, 124/255.0f, 1.0f);
+	spTl->use();
+	glUniformMatrix4fv(spTl->u("LP"), 1, false, glm::value_ptr(LP));
+    glUniformMatrix4fv(spTl->u("LV"), 1, false, glm::value_ptr(LV));
+	glUniformMatrix4fv(spTl->u("P"), 1, false, glm::value_ptr(P));
+    glUniformMatrix4fv(spTl->u("V"), 1, false, glm::value_ptr(V));
+    glUniformMatrix4fv(spTl->u("M"), 1, false, glm::value_ptr(M));
+	glUniform4f(spTl->u("lightDir"),
+        lightPos.x, lightPos.y, lightPos.z, 0.0f);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, ratBaseTex);
+	glActiveTexture(GL_TEXTURE0+1);
+	glBindTexture(GL_TEXTURE_2D, shadowTex);
+	glUniform1i(spTl->u("tex"), 0);
+	glUniform1i(spTl->u("shadowMap"), 1);
     rat.drawSolid();
 
 
 	//panel
 	glm::mat4 panelM = glm::translate(glm::mat4(1.0f), glm::vec3(5.0f, 1.5f, 2.0f));
+	panelM = glm::rotate(panelM,1.0f,glm::vec3(0,1,0));
     spTexture->use();
     glUniformMatrix4fv(spTexture->u("P"), 1, false, glm::value_ptr(P));
     glUniformMatrix4fv(spTexture->u("V"), 1, false, glm::value_ptr(V));
