@@ -14,8 +14,16 @@
 
 #include "objmodel.h"
 Models::ObjModel rat;
-GLuint ratBaseTex;
 FileExplorer explorer;
+
+//rat
+GLuint ratBaseTex;
+glm::vec3 ratPos = glm::vec3(0.0f, 1.0f, 0.0f);
+float ratAngle = 0.0f;
+float ratSpeed = 2.0f;
+float ratTurnTimer = 0.0f;
+float ratTurnInterval = 2.0f;
+float lastTime = 0.0f;
 
 //camera :3
 float camYaw = 0.0f;
@@ -34,6 +42,7 @@ GLuint panelVAO;
 GLuint shadowFBO;
 GLuint shadowTex;
 const int SHADOW_SIZE = 2048;
+
 //skybox
 GLuint skyboxVAO;
 GLuint skyboxTex;
@@ -212,6 +221,26 @@ void loadRatTexture(){
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
 }
+
+void updateRat() {
+    float time = glfwGetTime();
+    float dt = time - lastTime;
+    lastTime = time;
+
+    ratTurnTimer -= dt;
+    if (ratTurnTimer <= 0.0f) {
+        ratAngle = ((float)rand() / RAND_MAX) * 2.0f * glm::pi<float>();
+        ratTurnTimer = ratTurnInterval + ((float)rand() / RAND_MAX) * 2.0f;
+    }
+
+    ratPos.x += cos(ratAngle) * ratSpeed * dt;
+    ratPos.z += sin(ratAngle) * ratSpeed * dt;
+
+    float bound = 18.0f;
+    ratPos.x = glm::clamp(ratPos.x, -bound, bound);
+    ratPos.z = glm::clamp(ratPos.z, -bound, bound);
+}
+
 void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
 	if (startMouse) {
 		ltX = xpos;
@@ -298,14 +327,22 @@ void drawScene(GLFWwindow* window) {
     // macierz światła
     float time = glfwGetTime();
 	float lightRadius = 8.0f;
+	// glm::vec3 lightPos = glm::vec3(
+	// 	sin(time) * lightRadius,
+	// 	10.0f,
+	// 	cos(time) * lightRadius
+	// );
+
 	glm::vec3 lightPos = glm::vec3(
-		sin(time) * lightRadius,
 		10.0f,
-		cos(time) * lightRadius
+		10.0f,
+		10.0f
 	);
     glm::mat4 LP = glm::ortho(-20.0f, 20.0f, -20.0f, 20.0f, 1.0f, 50.0f);
     glm::mat4 LV = glm::lookAt(lightPos, glm::vec3(0,0,0), glm::vec3(0,1,0));
-    glm::mat4 M  = glm::mat4(1.0f);
+    // glm::mat4 M  = glm::mat4(1.0f);
+	glm::mat4 ratM = glm::translate(glm::mat4(1.0f), ratPos);
+    ratM = glm::rotate(ratM, ratAngle, glm::vec3(0.0f, 1.0f, 0.0f));
 
     // shadow map
     glViewport(0, 0, SHADOW_SIZE, SHADOW_SIZE);
@@ -316,7 +353,7 @@ void drawScene(GLFWwindow* window) {
     glUniformMatrix4fv(spShadow->u("LP"), 1, false, glm::value_ptr(LP));
     glUniformMatrix4fv(spShadow->u("LV"), 1, false, glm::value_ptr(LV));
 
-    glUniformMatrix4fv(spShadow->u("M"), 1, false, glm::value_ptr(M));
+    glUniformMatrix4fv(spShadow->u("M"), 1, false, glm::value_ptr(ratM));
     rat.drawSolid();
 
     glUniformMatrix4fv(spShadow->u("M"), 1, false, glm::value_ptr(glm::mat4(1.0f)));
@@ -373,7 +410,7 @@ void drawScene(GLFWwindow* window) {
     glUniformMatrix4fv(spTl->u("LV"), 1, false, glm::value_ptr(LV));
 	glUniformMatrix4fv(spTl->u("P"), 1, false, glm::value_ptr(P));
     glUniformMatrix4fv(spTl->u("V"), 1, false, glm::value_ptr(V));
-    glUniformMatrix4fv(spTl->u("M"), 1, false, glm::value_ptr(M));
+    glUniformMatrix4fv(spTl->u("M"), 1, false, glm::value_ptr(ratM));
 	glUniform4f(spTl->u("lightDir"),
         lightPos.x, lightPos.y, lightPos.z, 0.0f);
 	glActiveTexture(GL_TEXTURE0);
@@ -452,6 +489,7 @@ int main(void) {
 	while (!glfwWindowShouldClose(window)) {
 		if(glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
 			glfwSetWindowShouldClose(window, true);
+		updateRat();
 		drawScene(window);
 		glfwPollEvents();
 	}
