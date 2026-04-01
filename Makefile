@@ -1,6 +1,6 @@
 LIBS     = -lGL -lglfw -ldl
 HEADERS  = shaderprogram.h
-FILES = main_file.cpp shaderprogram.cpp lodepng.cpp model.cpp objmodel.cpp
+FILES = main_file.cpp shaderprogram.cpp model.cpp objmodel.cpp fileexplorer.cpp
 GLAD_SRC = glad/src/gl.c
 
 main_file: $(FILES) $(HEADERS) $(GLAD_SRC)

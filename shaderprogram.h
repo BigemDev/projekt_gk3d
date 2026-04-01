@@ -23,6 +23,7 @@ public:
 extern ShaderProgram* spLambert;
 extern ShaderProgram* spShadow;
 extern ShaderProgram* spSkybox;
+extern ShaderProgram* spTexture;
 void initShaders();
 void freeShaders();
 

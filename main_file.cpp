@@ -5,15 +5,16 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-// #include "lodepng.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include "shaderprogram.h"
+#include "fileexplorer.h"
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
 #include "objmodel.h"
 Models::ObjModel rat;
+FileExplorer explorer;
 
 //camera :3
 float camYaw = 0.0f;
@@ -24,6 +25,9 @@ float startMouse = true;
 
 //floor :3
 GLuint floorVAO;
+
+//panel
+GLuint panelVAO;
 
 //shadow map
 GLuint shadowFBO;
@@ -212,12 +216,39 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
 		camPitch = -1.5f;
 }
 
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+    if (action == GLFW_PRESS || action == GLFW_REPEAT) {
+        explorer.handleKey(key);
+    }
+}
 
 void error_callback(int error, const char* description) {
 	fputs(description, stderr);
 }
 
-
+void initPanel() {
+    float w = 3.0f;
+    float h = 2.0f;
+    float verts[] = {
+        -w/2,  h/2,  0.0f, 1.0f,  0.0f, 0.0f,
+         w/2,  h/2,  0.0f, 1.0f,  1.0f, 0.0f,
+         w/2, -h/2,  0.0f, 1.0f,  1.0f, 1.0f,
+        -w/2,  h/2,  0.0f, 1.0f,  0.0f, 0.0f,
+         w/2, -h/2,  0.0f, 1.0f,  1.0f, 1.0f,
+        -w/2, -h/2,  0.0f, 1.0f,  0.0f, 1.0f,
+    };
+    GLuint vbo;
+    glGenVertexArrays(1, &panelVAO);
+    glBindVertexArray(panelVAO);
+    glGenBuffers(1, &vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 4, GL_FLOAT, false, 6 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(2);
+    glVertexAttribPointer(2, 2, GL_FLOAT, false, 6 * sizeof(float), (void*)(4 * sizeof(float)));
+    glBindVertexArray(0);
+}
 
 void initOpenGLProgram(GLFWwindow* window) {
 	initShaders();
@@ -227,8 +258,11 @@ void initOpenGLProgram(GLFWwindow* window) {
 	rat = Models::ObjModel("RAT1.obj");
 	initFloor();
 	initShadowMap();
+	initPanel();
+	explorer.init("JetBrainsMonoNLNerdFontPropo-Bold.ttf", 512, 384);
 	initSkybox();
 	glfwSetCursorPosCallback(window, mouse_callback);
+	glfwSetKeyCallback(window, key_callback);
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 }
 
@@ -315,6 +349,19 @@ void drawScene(GLFWwindow* window) {
     glUniform4f(spLambert->u("color"), 228/255.0f, 0/255.0f, 124/255.0f, 1.0f);
     rat.drawSolid();
 
+
+	//panel
+	glm::mat4 panelM = glm::translate(glm::mat4(1.0f), glm::vec3(5.0f, 1.5f, 2.0f));
+    spTexture->use();
+    glUniformMatrix4fv(spTexture->u("P"), 1, false, glm::value_ptr(P));
+    glUniformMatrix4fv(spTexture->u("V"), 1, false, glm::value_ptr(V));
+    glUniformMatrix4fv(spTexture->u("M"), 1, false, glm::value_ptr(panelM));
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, explorer.getTexture());
+    glUniform1i(spTexture->u("tex"), 0);
+    glBindVertexArray(panelVAO);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    glBindVertexArray(0);
 
 	// this needs to go at the end
 	glDepthFunc(GL_LEQUAL);
