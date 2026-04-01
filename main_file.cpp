@@ -222,12 +222,12 @@ void loadRatTexture(){
 	glGenTextures(1, &ratBaseTex);
 	glBindTexture(GL_TEXTURE_2D, ratBaseTex);
 	int w, h, nC;
-	unsigned char* data = stbi_load("textures/texture_core.png", &w, &h, &nC, 3);
+	unsigned char* data = stbi_load("textures/texture_core.png", &w, &h, &nC, 0);
 		if (data) {
 			glTexImage2D(
 				GL_TEXTURE_2D,
-				0, GL_RGB, w, h, 0,
-				GL_RGB, GL_UNSIGNED_BYTE, data
+				0, GL_RGBA, w, h, 0,
+				GL_RGBA, GL_UNSIGNED_BYTE, data
 			);
 			stbi_image_free(data);
 		} else {

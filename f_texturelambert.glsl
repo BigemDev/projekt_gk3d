@@ -27,6 +27,7 @@ void main() {
     float shadow = texture(shadowMap, sc);
 
     float ambient = 0.3;
+    vec4 color=texture(tex, interpTexCoord);
     
-    fragColor = texture(tex, interpTexCoord) * texture(atlas, interpAtlasCoord)  * (ambient + diff * shadow);
+    fragColor = mix(texture(atlas, interpAtlasCoord), color,color.a)  * (ambient + diff * shadow);
 }
