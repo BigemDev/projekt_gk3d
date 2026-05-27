@@ -42,6 +42,44 @@ float ltX = 400.0f;
 float ltY = 300.0f;
 bool startMouse = true;
 
+// Camera modes (0 - free, 1 - top-down, 2 - view files, 3 - stare into the *void*)
+enum CameraMode { FREE, TOP_DOWN, FILE_VIEW, VOID_VIEW } camMode = FREE;
+
+struct CameraModeSettings
+{
+    glm::vec3 position;
+    float pitch;
+    float yaw;
+    glm::vec3 terminal1Pos;
+    glm::vec3 terminal2Pos;
+};
+
+//Terminal positioons not implemented yet, oopsie
+
+CameraModeSettings camPositions[] = {
+    {
+        //FREE mode
+    },{
+        //
+        glm::vec3(2.09, 42.60, -0.57), // position
+        -1.50f, // pitch
+        -26.67f, // yaw
+        glm::vec3(-4.5f, 4.5f, 5.0f), // terminal1Pos
+        glm::vec3(4.5f, 4.5f, 5.0f), // terminal2Pos
+    },{
+        glm::vec3(2.14, 8.50, 18.60), // position
+        -0.04f, // pitch
+        3.15f, // yaw
+        glm::vec3(-4.5f, 4.5f, 5.0f), // terminal1Pos
+        glm::vec3(4.5f, 4.5f, 5.0f), // terminal2Pos
+    },{
+        glm::vec3(0.63, 1.65, 18.27), // position
+        -0.38, // pitch
+        106.70, // yaw
+        glm::vec3(-4.5f, 4.5f, 5.0f), // terminal1Pos
+        glm::vec3(4.5f, 4.5f, 5.0f), // terminal2Pos
+    }
+};
 //floor :3
 GLuint floorVAO;
 
@@ -289,6 +327,7 @@ void updateRat(Rat *rat) {
 }
 
 void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
+    if (camMode != FREE) return;
     if (startMouse) {
         ltX = xpos;
         ltY = ypos;
@@ -460,10 +499,21 @@ void drawScene(GLFWwindow* window) {
     static glm::vec3 camPos = glm::vec3(0.0f, 2.0f, 18.0f);
     glm::vec3 right = glm::normalize(glm::cross(front, glm::vec3(0.0f, 1.0f, 0.0f)));
     float speed = 0.05f;
-    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) camPos += speed * front;
-    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) camPos -= speed * front;
-    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) camPos -= speed * right;
-    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) camPos += speed * right;
+    if (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS) camMode = FREE;
+    if (glfwGetKey(window, GLFW_KEY_2) == GLFW_PRESS) camMode = TOP_DOWN;
+    if (glfwGetKey(window, GLFW_KEY_3) == GLFW_PRESS) camMode = FILE_VIEW;
+    if (glfwGetKey(window, GLFW_KEY_4) == GLFW_PRESS) camMode = VOID_VIEW;
+    if(camMode == FREE){
+        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) camPos += speed * front;
+        if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) camPos -= speed * front;
+        if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) camPos -= speed * right;
+        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) camPos += speed * right;
+    } else {
+        camPos = camPositions[camMode].position;
+        camPitch = camPositions[camMode].pitch;
+        camYaw = camPositions[camMode].yaw;
+    }
+    if (glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS) printf("Camera Pos: (%.2f, %.2f, %.2f), pitch: %.2f, yaw: %.2f\n", camPos.x, camPos.y, camPos.z, camPitch, camYaw);
 
     glm::mat4 P = glm::perspective(glm::radians(50.0f), 1920.0f/1080.0f, 0.1f, 100.0f);
     glm::mat4 V = glm::lookAt(camPos, camPos + front, glm::vec3(0.0f, 1.0f, 0.0f));
