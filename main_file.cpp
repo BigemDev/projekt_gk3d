@@ -14,24 +14,24 @@
 
 #include "objmodel.h"
 Models::ObjModel rat;
-FileExplorer explorer;
+FileExplorer explorer;        // Lewy panel - przeglądarka plików
+FileExplorer fileViewer;      // Prawy panel - podgląd plików
 
 //rat
 GLuint ratBaseTex;
 GLuint ratAtlasTex;
 //
+
 struct Rat
 {
-	glm::vec3 pos = glm::vec3(0.0f, 1.0f, 0.0f);
-	glm::vec2 atlasOffset = glm::vec2(0.0f, 0.0f);
-	float angle = 0.0f;
-	float speed = 2.0f;
-	float turnTimer = 0.0f;
-	float turnInterval = 2.0f;
-	float lastTime = 0.0f;
+    glm::vec3 pos = glm::vec3(0.0f, 1.0f, 0.0f);
+    glm::vec2 atlasOffset = glm::vec2(0.0f, 0.0f);
+    float angle = 0.0f;
+    float speed = 2.0f;
+    float turnTimer = 0.0f;
+    float turnInterval = 2.0f;
+    float lastTime = 0.0f;
 };
-
-
 
 std::vector<Rat> rats;
 
@@ -40,13 +40,14 @@ float camYaw = 0.0f;
 float camPitch = 0.0f;
 float ltX = 400.0f;
 float ltY = 300.0f;
-float startMouse = true;
+bool startMouse = true;
 
 //floor :3
 GLuint floorVAO;
 
-//panel
+//panels
 GLuint panelVAO;
+GLuint panelVAO2;
 
 //shadow map
 GLuint shadowFBO;
@@ -56,33 +57,40 @@ const int SHADOW_SIZE = 2048;
 //skybox
 GLuint skyboxVAO;
 GLuint skyboxTex;
+
+std::string currentPreviewFile = "";
+float lastPreviewUpdateTime = 0.0f;
+
+//file chart
+bool showChart = true;
+float chartAngle = 0.0f;
+
 void initFloor() {
-	float size = 20.0f;
-	float y = -2.0f;
-	float vertices[] = {
-		-size,  y,  -size, 1.0f,  0.0f, 1.0f, 0.0f, 0.0f,
+    float size = 20.0f;
+    float y = -2.0f;
+    float vertices[] = {
+        -size,  y,  -size, 1.0f,  0.0f, 1.0f, 0.0f, 0.0f,
         size,  y,  -size, 1.0f,  0.0f, 1.0f, 0.0f, 0.0f,
         size,  y,   size, 1.0f,  0.0f, 1.0f, 0.0f, 0.0f,
         -size,  y,  -size, 1.0f,  0.0f, 1.0f, 0.0f, 0.0f,
         size,  y,   size, 1.0f,  0.0f, 1.0f, 0.0f, 0.0f,
         -size,  y,   size, 1.0f,  0.0f, 1.0f, 0.0f, 0.0f,
+    };
+    
+    GLuint vbo;
+    glGenVertexArrays(1, &floorVAO);
+    glBindVertexArray(floorVAO);
+    glGenBuffers(1, &vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
-	};
-	
-	GLuint vbo;
-	glGenVertexArrays(1, &floorVAO);
-	glBindVertexArray(floorVAO);
-	glGenBuffers(1, &vbo);
-	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 4, GL_FLOAT, false, 8 * sizeof(float), (void*)0);
 
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(0, 4, GL_FLOAT, false, 8 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 4, GL_FLOAT, false, 8 * sizeof(float), (void*)(4 * sizeof(float)));
 
-	glEnableVertexAttribArray(1);
-	glVertexAttribPointer(1, 4, GL_FLOAT, false, 8 * sizeof(float), (void*)(4 * sizeof(float)));
-
-	glBindVertexArray(0);
+    glBindVertexArray(0);
 }
 
 void initShadowMap() {
@@ -109,156 +117,156 @@ void initShadowMap() {
 }
 
 unsigned int loadSkybox() {
-	unsigned int texID;
-	
-	glGenTextures(1, &texID);
-	glBindTexture(GL_TEXTURE_CUBE_MAP, texID);
+    unsigned int texID;
+    
+    glGenTextures(1, &texID);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, texID);
 
-	// stbi_set_flip_vertically_on_load(false);
+    std::vector<std::string> textures = {
+        "textures/x_pos.png",
+        "textures/x_neg.png",
+        "textures/z_pos.png",
+        "textures/z_neg.png",
+        "textures/y_pos.png",
+        "textures/y_neg.png"
+    };
 
-	std::vector<std::string> textures = {
-		"textures/x_pos.png",
-		"textures/x_neg.png",
-		"textures/z_pos.png",
-		"textures/z_neg.png",
-		"textures/y_pos.png",
-		"textures/y_neg.png"
-	};
+    int w, h, nC;
+    for (unsigned int i = 0; i < textures.size(); i++) {
+        unsigned char* data = stbi_load(textures[i].c_str(), &w, &h, &nC, 3);
+        if (data) {
+            glTexImage2D(
+                GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
+                0, GL_RGB, w, h, 0,
+                GL_RGB, GL_UNSIGNED_BYTE, data
+            );
+            stbi_image_free(data);
+        } else {
+            fprintf(stderr, "Failed to load cubemap face: %s\n  stbi: %s\n",
+                textures[i].c_str(), stbi_failure_reason());
+            stbi_image_free(data);
+        }
+    }
 
-	int w, h, nC;
-	for (unsigned int i = 0; i < textures.size(); i++) {
-		unsigned char* data = stbi_load(textures[i].c_str(), &w, &h, &nC, 3);
-		if (data) {
-			glTexImage2D(
-				GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
-				0, GL_RGB, w, h, 0,
-				GL_RGB, GL_UNSIGNED_BYTE, data
-			);
-			stbi_image_free(data);
-		} else {
-			fprintf(stderr, "Failed to load cubemap face: %s\n  stbi: %s\n",
-				textures[i].c_str(), stbi_failure_reason());
-			stbi_image_free(data);
-		}
-	}
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
 
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-
-	return texID;
+    return texID;
 }
+
 void geneRatE(int num_rats){
-	Rat r;
-	for(int i=0; i<num_rats;i++){
-		r.pos.x= -20 + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/40));
-		r.pos.z= -20 + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/40));
-		r.atlasOffset.x= static_cast <float> (rand()) /static_cast <float> (RAND_MAX);
-		r.atlasOffset.y= static_cast <float> (rand()) /static_cast <float> (RAND_MAX);
-		rats.push_back(r);
-	}
+    Rat r;
+    for(int i=0; i<num_rats;i++){
+        r.pos.x= -20 + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/40));
+        r.pos.z= -20 + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/40));
+        r.atlasOffset.x= static_cast <float> (rand()) /static_cast <float> (RAND_MAX);
+        r.atlasOffset.y= static_cast <float> (rand()) /static_cast <float> (RAND_MAX);
+        rats.push_back(r);
+    }
 }
 
 void initSkybox() {
-	float vertices[] = {
-		-1.0f,  1.0f, -1.0f,
-		-1.0f, -1.0f, -1.0f,
-		 1.0f, -1.0f, -1.0f,
-		 1.0f, -1.0f, -1.0f,
-		 1.0f,  1.0f, -1.0f,
-		-1.0f,  1.0f, -1.0f,
+    float vertices[] = {
+        -1.0f,  1.0f, -1.0f,
+        -1.0f, -1.0f, -1.0f,
+         1.0f, -1.0f, -1.0f,
+         1.0f, -1.0f, -1.0f,
+         1.0f,  1.0f, -1.0f,
+        -1.0f,  1.0f, -1.0f,
 
-		-1.0f, -1.0f,  1.0f,
-		-1.0f, -1.0f, -1.0f,
-		-1.0f,  1.0f, -1.0f,
-		-1.0f,  1.0f, -1.0f,
-		-1.0f,  1.0f,  1.0f,
-		-1.0f, -1.0f,  1.0f,
+        -1.0f, -1.0f,  1.0f,
+        -1.0f, -1.0f, -1.0f,
+        -1.0f,  1.0f, -1.0f,
+        -1.0f,  1.0f, -1.0f,
+        -1.0f,  1.0f,  1.0f,
+        -1.0f, -1.0f,  1.0f,
 
-		 1.0f, -1.0f, -1.0f,
-		 1.0f, -1.0f,  1.0f,
-		 1.0f,  1.0f,  1.0f,
-		 1.0f,  1.0f,  1.0f,
-		 1.0f,  1.0f, -1.0f,
-		 1.0f, -1.0f, -1.0f,
+         1.0f, -1.0f, -1.0f,
+         1.0f, -1.0f,  1.0f,
+         1.0f,  1.0f,  1.0f,
+         1.0f,  1.0f,  1.0f,
+         1.0f,  1.0f, -1.0f,
+         1.0f, -1.0f, -1.0f,
 
-		-1.0f, -1.0f,  1.0f,
-		-1.0f,  1.0f,  1.0f,
-		 1.0f,  1.0f,  1.0f,
-		 1.0f,  1.0f,  1.0f,
-		 1.0f, -1.0f,  1.0f,
-		-1.0f, -1.0f,  1.0f,
+        -1.0f, -1.0f,  1.0f,
+        -1.0f,  1.0f,  1.0f,
+         1.0f,  1.0f,  1.0f,
+         1.0f,  1.0f,  1.0f,
+         1.0f, -1.0f,  1.0f,
+        -1.0f, -1.0f,  1.0f,
 
-		-1.0f,  1.0f, -1.0f,
-		 1.0f,  1.0f, -1.0f,
-		 1.0f,  1.0f,  1.0f,
-		 1.0f,  1.0f,  1.0f,
-		-1.0f,  1.0f,  1.0f,
-		-1.0f,  1.0f, -1.0f,
+        -1.0f,  1.0f, -1.0f,
+         1.0f,  1.0f, -1.0f,
+         1.0f,  1.0f,  1.0f,
+         1.0f,  1.0f,  1.0f,
+        -1.0f,  1.0f,  1.0f,
+        -1.0f,  1.0f, -1.0f,
 
-		-1.0f, -1.0f, -1.0f,
-		-1.0f, -1.0f,  1.0f,
-		 1.0f, -1.0f, -1.0f,
-		 1.0f, -1.0f, -1.0f,
-		-1.0f, -1.0f,  1.0f,
-		 1.0f, -1.0f,  1.0f
-	};
-	
-	GLuint vbo;
-	glGenVertexArrays(1, &skyboxVAO);
-	glGenBuffers(1, &vbo);
-	glBindVertexArray(skyboxVAO);
-	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), &vertices, GL_STATIC_DRAW);
+        -1.0f, -1.0f, -1.0f,
+        -1.0f, -1.0f,  1.0f,
+         1.0f, -1.0f, -1.0f,
+         1.0f, -1.0f, -1.0f,
+        -1.0f, -1.0f,  1.0f,
+         1.0f, -1.0f,  1.0f
+    };
+    
+    GLuint vbo;
+    glGenVertexArrays(1, &skyboxVAO);
+    glGenBuffers(1, &vbo);
+    glBindVertexArray(skyboxVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), &vertices, GL_STATIC_DRAW);
 
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
 
-	skyboxTex = loadSkybox();
+    skyboxTex = loadSkybox();
 }
-void loadRatTexture(){
-	glGenTextures(1, &ratBaseTex);
-	glBindTexture(GL_TEXTURE_2D, ratBaseTex);
-	int w, h, nC;
-	unsigned char* data = stbi_load("textures/texture_core.png", &w, &h, &nC, 0);
-		if (data) {
-			glTexImage2D(
-				GL_TEXTURE_2D,
-				0, GL_RGBA, w, h, 0,
-				GL_RGBA, GL_UNSIGNED_BYTE, data
-			);
-			stbi_image_free(data);
-		} else {
-			fprintf(stderr, "Failed to load rat texture stbi: %s\n",
-				stbi_failure_reason());
-			stbi_image_free(data);
-		}
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
 
-	glGenTextures(1, &ratAtlasTex);
-	glBindTexture(GL_TEXTURE_2D, ratAtlasTex);
-	data = stbi_load("textures/atlas.png", &w, &h, &nC, 3);
-		if (data) {
-			glTexImage2D(
-				GL_TEXTURE_2D,
-				0, GL_RGB, w, h, 0,
-				GL_RGB, GL_UNSIGNED_BYTE, data
-			);
-			stbi_image_free(data);
-		} else {
-			fprintf(stderr, "Failed to load atlas texture stbi: %s\n",
-				stbi_failure_reason());
-			stbi_image_free(data);
-		}
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
+void loadRatTexture(){
+    glGenTextures(1, &ratBaseTex);
+    glBindTexture(GL_TEXTURE_2D, ratBaseTex);
+    int w, h, nC;
+    unsigned char* data = stbi_load("textures/texture_core.png", &w, &h, &nC, 0);
+        if (data) {
+            glTexImage2D(
+                GL_TEXTURE_2D,
+                0, GL_RGBA, w, h, 0,
+                GL_RGBA, GL_UNSIGNED_BYTE, data
+            );
+            stbi_image_free(data);
+        } else {
+            fprintf(stderr, "Failed to load rat texture stbi: %s\n",
+                stbi_failure_reason());
+            stbi_image_free(data);
+        }
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
+
+    glGenTextures(1, &ratAtlasTex);
+    glBindTexture(GL_TEXTURE_2D, ratAtlasTex);
+    data = stbi_load("textures/atlas.png", &w, &h, &nC, 3);
+        if (data) {
+            glTexImage2D(
+                GL_TEXTURE_2D,
+                0, GL_RGB, w, h, 0,
+                GL_RGB, GL_UNSIGNED_BYTE, data
+            );
+            stbi_image_free(data);
+        } else {
+            fprintf(stderr, "Failed to load atlas texture stbi: %s\n",
+                stbi_failure_reason());
+            stbi_image_free(data);
+        }
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
 }
 
 void updateRat(Rat *rat) {
@@ -281,39 +289,57 @@ void updateRat(Rat *rat) {
 }
 
 void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
-	if (startMouse) {
-		ltX = xpos;
-		ltY = ypos;
-		startMouse = false;
-	}
+    if (startMouse) {
+        ltX = xpos;
+        ltY = ypos;
+        startMouse = false;
+    }
 
-	float xoffset = xpos - ltX;
-	float yoffset = ypos - ltY;
+    float xoffset = xpos - ltX;
+    float yoffset = ypos - ltY;
 
-	ltX = xpos;
-	ltY = ypos;
+    ltX = xpos;
+    ltY = ypos;
 
-	float sens = 0.01f;
-	xoffset *= sens;
-	yoffset *= sens;
+    float sens = 0.01f;
+    xoffset *= sens;
+    yoffset *= sens;
 
-	camYaw -= xoffset;
-	camPitch -= yoffset;
+    camYaw -= xoffset;
+    camPitch -= yoffset;
 
-	if (camPitch > 1.5f)
-		camPitch = 1.5f;
-	if (camPitch < -1.5f)
-		camPitch = -1.5f;
+    if (camPitch > 1.5f)
+        camPitch = 1.5f;
+    if (camPitch < -1.5f)
+        camPitch = -1.5f;
 }
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
     if (action == GLFW_PRESS || action == GLFW_REPEAT) {
-        explorer.handleKey(key);
+        if (key == GLFW_KEY_ESCAPE && !explorer.isFilePanelOpen() && !fileViewer.isFilePanelOpen()) {
+            glfwSetWindowShouldClose(window, true);
+        } else {
+            explorer.handleKey(key);
+        }
     }
 }
 
 void error_callback(int error, const char* description) {
-	fputs(description, stderr);
+    fputs(description, stderr);
+}
+
+glm::mat4 getBillboardMatrix(const glm::vec3& position, const glm::vec3& cameraPos, const glm::vec3& cameraUp) {
+    glm::vec3 look = glm::normalize(cameraPos - position);
+    glm::vec3 right = glm::normalize(glm::cross(cameraUp, look));
+    glm::vec3 up = glm::cross(look, right);
+    
+    glm::mat4 billboard(1.0f);
+    billboard[0] = glm::vec4(right, 0.0f);
+    billboard[1] = glm::vec4(up, 0.0f);
+    billboard[2] = glm::vec4(look, 0.0f);
+    billboard[3] = glm::vec4(position, 1.0f);
+    
+    return billboard;
 }
 
 void initPanel() {
@@ -327,6 +353,7 @@ void initPanel() {
          w/2, -h/2,  0.0f, 1.0f,  1.0f, 1.0f,
         -w/2, -h/2,  0.0f, 1.0f,  0.0f, 1.0f,
     };
+    
     GLuint vbo;
     glGenVertexArrays(1, &panelVAO);
     glBindVertexArray(panelVAO);
@@ -338,53 +365,67 @@ void initPanel() {
     glEnableVertexAttribArray(2);
     glVertexAttribPointer(2, 2, GL_FLOAT, false, 6 * sizeof(float), (void*)(4 * sizeof(float)));
     glBindVertexArray(0);
+    
+    glGenVertexArrays(1, &panelVAO2);
+    glBindVertexArray(panelVAO2);
+    glGenBuffers(1, &vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 4, GL_FLOAT, false, 6 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(2);
+    glVertexAttribPointer(2, 2, GL_FLOAT, false, 6 * sizeof(float), (void*)(4 * sizeof(float)));
+    glBindVertexArray(0);
 }
 
 void initOpenGLProgram(GLFWwindow* window) {
-	initShaders();
-	glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-	glEnable(GL_DEPTH_TEST);
-	glEnable(GL_TEXTURE_2D);
-	rat = Models::ObjModel("RAT1.obj");
-	loadRatTexture();
-	geneRatE(2);
-	rats[0].atlasOffset=glm::vec2(0.5,0.5);
-	initFloor();
-	initShadowMap();
-	initPanel();
-	explorer.init("JetBrainsMonoNLNerdFontPropo-Bold.ttf", 512, 384);
-	initSkybox();
-	glfwSetCursorPosCallback(window, mouse_callback);
-	glfwSetKeyCallback(window, key_callback);
-	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    initShaders();
+    glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_TEXTURE_2D);
+    rat = Models::ObjModel("RAT1.obj");
+    loadRatTexture();
+    geneRatE(15);
+    rats[0].atlasOffset=glm::vec2(0.5,0.5);
+    initFloor();
+    initShadowMap();
+    initPanel();
+   
+    explorer.init("JetBrainsMonoNLNerdFontPropo-Bold.ttf", 1024, 1024);
+    fileViewer.init("JetBrainsMonoNLNerdFontPropo-Bold.ttf", 1024, 1024);
+    
+    fileViewer.setViewingFile("Wybierz plik z lewego panelu aby zobaczyć podgląd...");
+    
+    initSkybox();
+    
+    glfwSetCursorPosCallback(window, mouse_callback);
+    glfwSetKeyCallback(window, key_callback);
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 }
 
 void freeOpenGLProgram(GLFWwindow* window) {
-	freeShaders();
-
+    freeShaders();
 }
 
 void drawScene(GLFWwindow* window) {
-    // macierz światła
     float time = glfwGetTime();
-	float lightRadius = 8.0f;
-	// glm::vec3 lightPos = glm::vec3(
-	// 	sin(time) * lightRadius,
-	// 	10.0f,
-	// 	cos(time) * lightRadius
-	// );
-
-	glm::vec3 lightPos = glm::vec3(
-		10.0f,
-		10.0f,
-		10.0f
-	);
+    
+    if (time - lastPreviewUpdateTime > 0.1f) {
+        lastPreviewUpdateTime = time;
+        std::string selectedFile = explorer.getSelectedFilePath();
+        if (!selectedFile.empty() && !explorer.isDirectorySelected()) {
+            if (selectedFile != currentPreviewFile) {
+                currentPreviewFile = selectedFile;
+                fileViewer.setViewingFile(selectedFile);
+            }
+        }
+    }
+    
+    glm::vec3 lightPos = glm::vec3(10.0f, 10.0f, 10.0f);
     glm::mat4 LP = glm::ortho(-20.0f, 20.0f, -20.0f, 20.0f, 1.0f, 50.0f);
     glm::mat4 LV = glm::lookAt(lightPos, glm::vec3(0,0,0), glm::vec3(0,1,0));
-    // glm::mat4 M  = glm::mat4(1.0f);
-	
 
-    // shadow map
+    // Shadow map rendering
     glViewport(0, 0, SHADOW_SIZE, SHADOW_SIZE);
     glBindFramebuffer(GL_FRAMEBUFFER, shadowFBO);
     glClear(GL_DEPTH_BUFFER_BIT);
@@ -392,23 +433,21 @@ void drawScene(GLFWwindow* window) {
     spShadow->use();
     glUniformMatrix4fv(spShadow->u("LP"), 1, false, glm::value_ptr(LP));
     glUniformMatrix4fv(spShadow->u("LV"), 1, false, glm::value_ptr(LV));
-    //glUniformMatrix4fv(spShadow->u("M"), 1, false, glm::value_ptr(ratM));
+    
     for (auto& r : rats) {
-		glm::mat4 ratM = glm::translate(glm::mat4(1.0f), r.pos);
-    	ratM = glm::rotate(ratM, r.angle, glm::vec3(0.0f, 1.0f, 0.0f));
-		glUniformMatrix4fv(spShadow->u("M"), 1, false, glm::value_ptr(ratM));
-    	rat.drawSolid();
-	}
+        glm::mat4 ratM = glm::translate(glm::mat4(1.0f), r.pos);
+        ratM = glm::rotate(ratM, r.angle, glm::vec3(0.0f, 1.0f, 0.0f));
+        glUniformMatrix4fv(spShadow->u("M"), 1, false, glm::value_ptr(ratM));
+        rat.drawSolid();
+    }
 
     glUniformMatrix4fv(spShadow->u("M"), 1, false, glm::value_ptr(glm::mat4(1.0f)));
     glBindVertexArray(floorVAO);
     glDrawArrays(GL_TRIANGLES, 0, 6);
     glBindVertexArray(0);
-
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-	// everything else
-    
+    // Proper scene rendering
     glViewport(0, 0, 1920, 1080);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -418,7 +457,7 @@ void drawScene(GLFWwindow* window) {
     front.z = cos(camPitch) * cos(camYaw);
     front = glm::normalize(front);
 
-    static glm::vec3 camPos = glm::vec3(0.0f, 2.0f, 10.0f);
+    static glm::vec3 camPos = glm::vec3(0.0f, 2.0f, 18.0f);
     glm::vec3 right = glm::normalize(glm::cross(front, glm::vec3(0.0f, 1.0f, 0.0f)));
     float speed = 0.05f;
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) camPos += speed * front;
@@ -432,126 +471,154 @@ void drawScene(GLFWwindow* window) {
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, shadowTex);
 
+    // Rysowanie podłogi
     spLambert->use();
     glUniform1i(spLambert->u("shadowMap"), 0);
     glUniformMatrix4fv(spLambert->u("P"),  1, false, glm::value_ptr(P));
     glUniformMatrix4fv(spLambert->u("V"),  1, false, glm::value_ptr(V));
     glUniformMatrix4fv(spLambert->u("LP"), 1, false, glm::value_ptr(LP));
     glUniformMatrix4fv(spLambert->u("LV"), 1, false, glm::value_ptr(LV));
-    glUniform4f(spLambert->u("lightDir"),
-        lightPos.x, lightPos.y, lightPos.z, 0.0f);
-
-    // floor
+    glUniform4f(spLambert->u("lightDir"), lightPos.x, lightPos.y, lightPos.z, 0.0f);
     glUniformMatrix4fv(spLambert->u("M"), 1, false, glm::value_ptr(glm::mat4(1.0f)));
     glUniform4f(spLambert->u("color"), 0.3f, 0.3f, 0.3f, 1.0f);
     glBindVertexArray(floorVAO);
     glDrawArrays(GL_TRIANGLES, 0, 6);
     glBindVertexArray(0);
 
-    // szczur
-	spTl->use();
-	glUniformMatrix4fv(spTl->u("LP"), 1, false, glm::value_ptr(LP));
+    // Rysowanie szczurów
+    spTl->use();
+    glUniformMatrix4fv(spTl->u("LP"), 1, false, glm::value_ptr(LP));
     glUniformMatrix4fv(spTl->u("LV"), 1, false, glm::value_ptr(LV));
-	glUniformMatrix4fv(spTl->u("P"), 1, false, glm::value_ptr(P));
+    glUniformMatrix4fv(spTl->u("P"), 1, false, glm::value_ptr(P));
     glUniformMatrix4fv(spTl->u("V"), 1, false, glm::value_ptr(V));
-	glUniform4f(spTl->u("lightDir"),
-        lightPos.x, lightPos.y, lightPos.z, 0.0f);
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, ratBaseTex);
-	glActiveTexture(GL_TEXTURE0+1);
-	glBindTexture(GL_TEXTURE_2D, shadowTex);
-	glActiveTexture(GL_TEXTURE0+2);
-	glBindTexture(GL_TEXTURE_2D, ratAtlasTex);
-	glUniform1i(spTl->u("tex"), 0);
-	glUniform1i(spTl->u("shadowMap"), 1);
-	glUniform1i(spTl->u("atlas"), 2);	
-	for (auto& r : rats) {
-		glm::mat4 ratM = glm::translate(glm::mat4(1.0f), r.pos);
-		ratM = glm::rotate(ratM,r.angle,glm::vec3(0, 1, 0));
-		glUniform2fv(spTl->u("texOffset"), 1, glm::value_ptr(r.atlasOffset));
-		glUniformMatrix4fv(spTl->u("M"), 1, false, glm::value_ptr(ratM));
-    	rat.drawSolid();
-	}
-	
+    glUniform4f(spTl->u("lightDir"), lightPos.x, lightPos.y, lightPos.z, 0.0f);
+    
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, ratBaseTex);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, shadowTex);
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, ratAtlasTex);
+    glUniform1i(spTl->u("tex"), 0);
+    glUniform1i(spTl->u("shadowMap"), 1);
+    glUniform1i(spTl->u("atlas"), 2);    
+    
+    for (auto& r : rats) {
+        glm::mat4 ratM = glm::translate(glm::mat4(1.0f), r.pos);
+        ratM = glm::rotate(ratM, r.angle, glm::vec3(0, 1, 0));
+        glUniform2fv(spTl->u("texOffset"), 1, glm::value_ptr(r.atlasOffset));
+        glUniformMatrix4fv(spTl->u("M"), 1, false, glm::value_ptr(ratM));
+        rat.drawSolid();
+    }
 
-
-	//panel
-	glm::mat4 panelM = glm::translate(glm::mat4(1.0f), glm::vec3(5.0f, 1.5f, 2.0f));
-	panelM = glm::rotate(panelM,1.0f,glm::vec3(0,1,0));
+    // wykres
+    if (showChart) {
+        static std::string lastPath = "";
+        if (lastPath != explorer.getCurrentPath()) {
+            explorer.updateChart();
+            lastPath = explorer.getCurrentPath();
+        }
+        
+        glm::vec3 chartPos = glm::vec3(0.0f, 0.0f, -2.0f);
+        explorer.getChart()->draw(P, V, chartPos, camPos);
+    }
+    
+    // PANEL 1
+    glm::vec3 panel1Pos = glm::vec3(-4.5f, 4.5f, 5.0f);
+    glm::mat4 panel1M = getBillboardMatrix(panel1Pos, camPos, glm::vec3(0.0f, 1.0f, 0.0f));
+    panel1M = glm::scale(panel1M, glm::vec3(2.2f, 2.2f, 1.0f));
+    
     spTexture->use();
     glUniformMatrix4fv(spTexture->u("P"), 1, false, glm::value_ptr(P));
     glUniformMatrix4fv(spTexture->u("V"), 1, false, glm::value_ptr(V));
-    glUniformMatrix4fv(spTexture->u("M"), 1, false, glm::value_ptr(panelM));
+    glUniformMatrix4fv(spTexture->u("M"), 1, false, glm::value_ptr(panel1M));
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, explorer.getTexture());
     glUniform1i(spTexture->u("tex"), 0);
     glBindVertexArray(panelVAO);
     glDrawArrays(GL_TRIANGLES, 0, 6);
     glBindVertexArray(0);
+    
+    // PANEL 2
+    glm::vec3 panel2Pos = glm::vec3(4.5f, 4.5f, 5.0f);
+    glm::mat4 panel2M = getBillboardMatrix(panel2Pos, camPos, glm::vec3(0.0f, 1.0f, 0.0f));
+    panel2M = glm::scale(panel2M, glm::vec3(2.2f, 2.2f, 1.0f));
+    
+    glUniformMatrix4fv(spTexture->u("M"), 1, false, glm::value_ptr(panel2M));
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, fileViewer.getTexture());
+    glUniform1i(spTexture->u("tex"), 0);
+    glBindVertexArray(panelVAO2);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    glBindVertexArray(0);
 
-	// this needs to go at the end
-	glDepthFunc(GL_LEQUAL);
-	glDepthMask(GL_FALSE);
+    // Skybox
+    glDepthFunc(GL_LEQUAL);
+    glDepthMask(GL_FALSE);
 
-	spSkybox->use();
-	glm::mat4 skyV = glm::mat4(glm::mat3(V));
-	glUniformMatrix4fv(spSkybox->u("projection"), 1, false, glm::value_ptr(P));
-	glUniformMatrix4fv(spSkybox->u("view"),       1, false, glm::value_ptr(skyV));
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxTex);
-	glUniform1i(spSkybox->u("skybox"), 0);
-	glBindVertexArray(skyboxVAO);
-	glDrawArrays(GL_TRIANGLES, 0, 36);
-	glBindVertexArray(0);
+    spSkybox->use();
+    glm::mat4 skyV = glm::mat4(glm::mat3(V));
+    glUniformMatrix4fv(spSkybox->u("projection"), 1, false, glm::value_ptr(P));
+    glUniformMatrix4fv(spSkybox->u("view"),       1, false, glm::value_ptr(skyV));
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxTex);
+    glUniform1i(spSkybox->u("skybox"), 0);
+    glBindVertexArray(skyboxVAO);
+    glDrawArrays(GL_TRIANGLES, 0, 36);
+    glBindVertexArray(0);
 
-	glDepthMask(GL_TRUE);
-	glDepthFunc(GL_LESS);    
+    glDepthMask(GL_TRUE);
+    glDepthFunc(GL_LESS);    
 
     glfwSwapBuffers(window);
 }
 
 int main(void) {
-	GLFWwindow* window;
+    GLFWwindow* window;
 
-	glfwSetErrorCallback(error_callback);
+    glfwSetErrorCallback(error_callback);
 
-	if (!glfwInit()) {
-		fprintf(stderr, "Nie można zainicjować GLFW.\n");
-		exit(EXIT_FAILURE);
-	}
+    if (!glfwInit()) {
+        fprintf(stderr, "Nie można zainicjować GLFW.\n");
+        exit(EXIT_FAILURE);
+    }
 
-	window = glfwCreateWindow(1920, 1080, "Dojebany projekt terminalowy", NULL, NULL);
+    window = glfwCreateWindow(1920, 1080, "Dojebany projekt terminalowy - File Explorer + Preview", NULL, NULL);
 
-	if (!window) {
-		fprintf(stderr, "Nie można utworzyć okna.\n");
-		glfwTerminate();
-		exit(EXIT_FAILURE);
-	}
+    if (!window) {
+        fprintf(stderr, "Nie można utworzyć okna.\n");
+        glfwTerminate();
+        exit(EXIT_FAILURE);
+    }
 
-	glfwMakeContextCurrent(window);
-	glfwSwapInterval(1);
+    glfwMakeContextCurrent(window);
+    glfwSwapInterval(1);
 
-	if (!gladLoadGL(glfwGetProcAddress)) {
-		fprintf(stderr, "Nie można zainicjować GLAD.\n");
-		exit(EXIT_FAILURE);
-	}
+    if (!gladLoadGL(glfwGetProcAddress)) {
+        fprintf(stderr, "Nie można zainicjować GLAD.\n");
+        exit(EXIT_FAILURE);
+    }
 
-	initOpenGLProgram(window);
+    initOpenGLProgram(window);
 
-	glfwSetTime(0);
-	while (!glfwWindowShouldClose(window)) {
-		if(glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-			glfwSetWindowShouldClose(window, true);
-		for(auto& r:rats){
-			updateRat(&r);
-		}
-		drawScene(window);
-		glfwPollEvents();
-	}
+    glfwSetTime(0);
+    while (!glfwWindowShouldClose(window)) {
+        if(glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+            glfwSetWindowShouldClose(window, true);
+        
+        explorer.update();
+        fileViewer.update();
+        
+        for(auto& r:rats){
+            updateRat(&r);
+        }
+        drawScene(window);
+        glfwPollEvents();
+    }
 
-	freeOpenGLProgram(window);
+    freeOpenGLProgram(window);
 
-	glfwDestroyWindow(window);
-	glfwTerminate();
-	exit(EXIT_SUCCESS);
+    glfwDestroyWindow(window);
+    glfwTerminate();
+    exit(EXIT_SUCCESS);
 }

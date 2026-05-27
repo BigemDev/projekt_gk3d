@@ -4,6 +4,7 @@ ShaderProgram* spShadow = nullptr;
 ShaderProgram* spSkybox = nullptr;
 ShaderProgram* spTexture = nullptr;
 ShaderProgram* spTl = nullptr;
+ShaderProgram* spLabel = nullptr;
 
 void initShaders() {
 	spLambert = new ShaderProgram("v_lambert.glsl", NULL, "f_lambert.glsl");
@@ -11,6 +12,7 @@ void initShaders() {
 	spSkybox = new ShaderProgram("v_skybox.glsl", NULL, "f_skybox.glsl");
 	spTexture = new ShaderProgram("v_texture.glsl", NULL, "f_texture.glsl");
 	spTl = new ShaderProgram("v_texturelambert.glsl", NULL, "f_texturelambert.glsl");
+	spLabel = new ShaderProgram("v_label.glsl", NULL, "f_label.glsl");
 }
 
 void freeShaders() {
@@ -18,6 +20,7 @@ void freeShaders() {
 	delete spShadow;
 	delete spSkybox;
 	delete spTexture;
+	delete spLabel;
 }
 
 char* ShaderProgram::readFile(const char* fileName) {

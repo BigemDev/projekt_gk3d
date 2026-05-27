@@ -25,6 +25,7 @@ extern ShaderProgram* spShadow;
 extern ShaderProgram* spSkybox;
 extern ShaderProgram* spTexture;
 extern ShaderProgram* spTl;
+extern ShaderProgram* spLabel;
 void initShaders();
 void freeShaders();
 
