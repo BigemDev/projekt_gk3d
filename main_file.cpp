@@ -21,7 +21,6 @@ FileExplorer fileViewer;      // Prawy panel - podgląd plików
 GLuint ratBaseTex;
 GLuint ratAtlasTex;
 //
-
 struct Rat
 {
     glm::vec3 pos = glm::vec3(0.0f, 1.0f, 0.0f);
@@ -43,7 +42,7 @@ float ltY = 300.0f;
 bool startMouse = true;
 
 // Camera modes (0 - free, 1 - top-down, 2 - view files, 3 - stare into the *void*)
-enum CameraMode { FREE, TOP_DOWN, FILE_VIEW, VOID_VIEW } camMode = FREE;
+enum CameraMode { FREE, TOP_DOWN, FILE_VIEW, VOID_VIEW, RAT_VIEW } camMode = FREE;
 
 struct CameraModeSettings
 {
@@ -73,11 +72,14 @@ CameraModeSettings camPositions[] = {
         glm::vec3(-4.5f, 4.5f, 5.0f), // terminal1Pos
         glm::vec3(4.5f, 4.5f, 5.0f), // terminal2Pos
     },{
-        glm::vec3(0.63, 1.65, 18.27), // position
-        -0.38, // pitch
-        106.70, // yaw
+        glm::vec3(0.63f, -20.0f, 18.27f), // position
+        -1.50f, // pitch
+        -26.67f, // yaw
         glm::vec3(-4.5f, 4.5f, 5.0f), // terminal1Pos
         glm::vec3(4.5f, 4.5f, 5.0f), // terminal2Pos
+    },
+    {
+        //Ratmode
     }
 };
 //floor :3
@@ -499,21 +501,29 @@ void drawScene(GLFWwindow* window) {
     static glm::vec3 camPos = glm::vec3(0.0f, 2.0f, 18.0f);
     glm::vec3 right = glm::normalize(glm::cross(front, glm::vec3(0.0f, 1.0f, 0.0f)));
     float speed = 0.05f;
+     // debug 
     if (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS) camMode = FREE;
     if (glfwGetKey(window, GLFW_KEY_2) == GLFW_PRESS) camMode = TOP_DOWN;
     if (glfwGetKey(window, GLFW_KEY_3) == GLFW_PRESS) camMode = FILE_VIEW;
     if (glfwGetKey(window, GLFW_KEY_4) == GLFW_PRESS) camMode = VOID_VIEW;
+    if (glfwGetKey(window, GLFW_KEY_5) == GLFW_PRESS) camMode = RAT_VIEW;
     if(camMode == FREE){
         if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) camPos += speed * front;
         if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) camPos -= speed * front;
         if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) camPos -= speed * right;
         if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) camPos += speed * right;
-    } else {
+    }
+    else if (camMode == RAT_VIEW) {
+        // First person view from the first rat, the floating point offsets aren't mathematically justified but they look good enough
+        camPos = rats[0].pos + front * 3.68f;
+        camPitch = 0;
+        camYaw = rats[0].angle - 2.46;
+    }
+    else {
         camPos = camPositions[camMode].position;
         camPitch = camPositions[camMode].pitch;
         camYaw = camPositions[camMode].yaw;
     }
-    if (glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS) printf("Camera Pos: (%.2f, %.2f, %.2f), pitch: %.2f, yaw: %.2f\n", camPos.x, camPos.y, camPos.z, camPitch, camYaw);
 
     glm::mat4 P = glm::perspective(glm::radians(50.0f), 1920.0f/1080.0f, 0.1f, 100.0f);
     glm::mat4 V = glm::lookAt(camPos, camPos + front, glm::vec3(0.0f, 1.0f, 0.0f));
