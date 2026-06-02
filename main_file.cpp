@@ -51,37 +51,52 @@ struct CameraModeSettings
     float yaw;
     glm::vec3 terminal1Pos;
     glm::vec3 terminal2Pos;
+    std::string viewName;
+    GLuint uiTex;
 };
 
 //Terminal positioons not implemented yet, oopsie
 
 CameraModeSettings camPositions[] = {
     {
+        viewName: "Free camera",
         //FREE mode
     },{
-        //
         glm::vec3(2.09, 42.60, -0.57), // position
         -1.50f, // pitch
         -26.67f, // yaw
         glm::vec3(-4.5f, 4.5f, 5.0f), // terminal1Pos
         glm::vec3(4.5f, 4.5f, 5.0f), // terminal2Pos
+        "Top-down view"
     },{
         glm::vec3(2.14, 8.50, 18.60), // position
         -0.04f, // pitch
         3.15f, // yaw
         glm::vec3(-4.5f, 4.5f, 5.0f), // terminal1Pos
         glm::vec3(4.5f, 4.5f, 5.0f), // terminal2Pos
+        "File chart view"
     },{
         glm::vec3(0.63f, -20.0f, 18.27f), // position
         -1.50f, // pitch
         -26.67f, // yaw
         glm::vec3(-4.5f, 4.5f, 5.0f), // terminal1Pos
         glm::vec3(4.5f, 4.5f, 5.0f), // terminal2Pos
+        "The void undernearth the floor",
     },
     {
+        viewName: "Rat's eye view",
         //Ratmode
     }
 };
+void initUITextures(){
+    std::string uiText;
+    for ( int i = 0; i < 4; i++ ){
+        uiText = "Camera mode: " + camPositions[i].viewName;
+        if (i==FREE) uiText += "W,S,A,D to move, mouse to look around";
+        uiText += " | Press 1-5 to switch";
+        camPositions[i].uiTex = explorer.makeUiTexture(uiText);
+    }
+}
 //floor :3
 GLuint floorVAO;
 
@@ -427,7 +442,6 @@ void initOpenGLProgram(GLFWwindow* window) {
     rat = Models::ObjModel("RAT1.obj");
     loadRatTexture();
     geneRatE(15);
-    rats[0].atlasOffset=glm::vec2(0.5,0.5);
     initFloor();
     initShadowMap();
     initPanel();
@@ -438,7 +452,7 @@ void initOpenGLProgram(GLFWwindow* window) {
     fileViewer.setViewingFile("Wybierz plik z lewego panelu aby zobaczyć podgląd...");
     
     initSkybox();
-    
+    initUITextures();
     glfwSetCursorPosCallback(window, mouse_callback);
     glfwSetKeyCallback(window, key_callback);
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
@@ -481,7 +495,6 @@ void drawScene(GLFWwindow* window) {
         glUniformMatrix4fv(spShadow->u("M"), 1, false, glm::value_ptr(ratM));
         rat.drawSolid();
     }
-
     glUniformMatrix4fv(spShadow->u("M"), 1, false, glm::value_ptr(glm::mat4(1.0f)));
     glBindVertexArray(floorVAO);
     glDrawArrays(GL_TRIANGLES, 0, 6);
@@ -612,10 +625,25 @@ void drawScene(GLFWwindow* window) {
     glDrawArrays(GL_TRIANGLES, 0, 6);
     glBindVertexArray(0);
 
-    // Skybox
+    
     glDepthFunc(GL_LEQUAL);
     glDepthMask(GL_FALSE);
-
+    spLabel->use();
+    glm::mat4 UIM = glm::translate(glm::mat4(1.0f), camPos + front * 3.0f);
+    UIM = glm::rotate(UIM, camYaw+3.14, glm::vec3(0.0f, 1.0f, 0.0f));
+    UIM = glm::rotate(UIM, camPitch, glm::vec3(1.0f, 0.0f, 0.0f));
+    glUniformMatrix4fv(spLabel->u("P"), 1, false, glm::value_ptr(P));
+    glUniformMatrix4fv(spLabel->u("V"), 1, false, glm::value_ptr(V));
+    glUniformMatrix4fv(spLabel->u("M"), 1, false, glm::value_ptr(UIM));
+    glActiveTexture(GL_TEXTURE3);
+    glBindTexture(GL_TEXTURE_2D, camPositions[camMode].uiTex);
+    glUniform1i(spLabel->u("tex"), 3);
+            
+    extern GLuint panelVAO;
+    glBindVertexArray(panelVAO);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    glBindVertexArray(0);
+    glActiveTexture(GL_TEXTURE0);
     spSkybox->use();
     glm::mat4 skyV = glm::mat4(glm::mat3(V));
     glUniformMatrix4fv(spSkybox->u("projection"), 1, false, glm::value_ptr(P));

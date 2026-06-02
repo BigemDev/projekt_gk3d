@@ -163,7 +163,8 @@ bool FileExplorer::isTextFile(const std::string& filepath) {
             ".json", ".yml", ".yaml", ".md", ".rst", ".tex",
             ".glsl", ".vert", ".frag", ".geom", ".sh", ".bash",
             ".cfg", ".conf", ".ini", ".log", ".csv", ".tsv",
-            ".rs", ".go", ".rb", ".php", ".pl", ".lua", ".sql"
+            ".rs", ".go", ".rb", ".php", ".pl", ".lua", ".sql",
+            ".fasta",
         };
         for (const auto& textExt : textExtensions) {
             if (ext == textExt) return true;
@@ -572,7 +573,22 @@ void FileChart::cleanup() {
     if (vao) glDeleteVertexArrays(1, &vao);
     vao = vbo = 0;
 }
+GLuint FileExplorer::makeUiTexture(const std::string text) {
+    int w,h;
+    GLuint uiTex;
+    getTextDimensions(text, w, h);
+    glGenTextures(1, &uiTex);
+    glBindTexture(GL_TEXTURE_2D, uiTex);
 
+    unsigned char*buffer = new unsigned char[w * h * 4];
+    FileExplorer::renderTextToBuffer(text, buffer, w, h);
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    return uiTex;
+}
 void FileChart::updateData(const std::vector<FileEntry>& entries, FileExplorer* explorer) {
    for (auto& bar : bars) {
         if (bar.labelTex) {

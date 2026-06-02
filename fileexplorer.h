@@ -53,6 +53,7 @@ public:
     void init(const char* fontPath, int texWidth, int texHeight);
     void handleKey(int key);
     void update();
+    GLuint makeUiTexture(std::string);
     bool isFilePanelOpen() { return !viewingFile.empty(); }
     GLuint getTexture() { return screenTex; }
     
@@ -81,7 +82,6 @@ public:
     FileChart* getChart() { return &chart; }
     
     void updateChart();
-    
     std::string getCurrentPath() const { return currentPath; }
     
     void* getCharData() const { return charData; }
