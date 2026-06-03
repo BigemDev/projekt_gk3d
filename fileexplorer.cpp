@@ -573,10 +573,11 @@ void FileChart::cleanup() {
     if (vao) glDeleteVertexArrays(1, &vao);
     vao = vbo = 0;
 }
-GLuint FileExplorer::makeUiTexture(const std::string text) {
+GLuint FileExplorer::makeUiTexture(const std::string text, glm::vec3& scale) {
     int w,h;
     GLuint uiTex;
     getTextDimensions(text, w, h);
+    scale = glm::vec3((float)w / 100.0f, (float)h / 100.0f, 1.0f);
     glGenTextures(1, &uiTex);
     glBindTexture(GL_TEXTURE_2D, uiTex);
 

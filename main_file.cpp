@@ -53,6 +53,7 @@ struct CameraModeSettings
     glm::vec3 terminal2Pos;
     std::string viewName;
     GLuint uiTex;
+    glm::vec3 uiScale;
 };
 
 //Terminal positioons not implemented yet, oopsie
@@ -90,11 +91,11 @@ CameraModeSettings camPositions[] = {
 };
 void initUITextures(){
     std::string uiText;
-    for ( int i = 0; i < 4; i++ ){
+    for ( int i = 0; i < 5; i++ ){
         uiText = "Camera mode: " + camPositions[i].viewName;
         if (i==FREE) uiText += "W,S,A,D to move, mouse to look around";
         uiText += " | Press 1-5 to switch";
-        camPositions[i].uiTex = explorer.makeUiTexture(uiText);
+        camPositions[i].uiTex = explorer.makeUiTexture(uiText,camPositions[i].uiScale);
     }
 }
 //floor :3
@@ -625,24 +626,25 @@ void drawScene(GLFWwindow* window) {
     glDrawArrays(GL_TRIANGLES, 0, 6);
     glBindVertexArray(0);
 
-    
-    glDepthFunc(GL_LEQUAL);
-    glDepthMask(GL_FALSE);
     spLabel->use();
-    glm::mat4 UIM = glm::translate(glm::mat4(1.0f), camPos + front * 3.0f);
-    UIM = glm::rotate(UIM, camYaw+3.14, glm::vec3(0.0f, 1.0f, 0.0f));
+    glm::mat4 UIM = glm::translate(glm::mat4(1.0f), camPos + front);
+    
+    UIM = glm::rotate(UIM, camYaw+3.14f, glm::vec3(0.0f, 1.0f, 0.0f));
     UIM = glm::rotate(UIM, camPitch, glm::vec3(1.0f, 0.0f, 0.0f));
+    UIM = glm::scale(UIM, camPositions[camMode].uiScale * 0.025f);
     glUniformMatrix4fv(spLabel->u("P"), 1, false, glm::value_ptr(P));
     glUniformMatrix4fv(spLabel->u("V"), 1, false, glm::value_ptr(V));
     glUniformMatrix4fv(spLabel->u("M"), 1, false, glm::value_ptr(UIM));
     glActiveTexture(GL_TEXTURE3);
     glBindTexture(GL_TEXTURE_2D, camPositions[camMode].uiTex);
     glUniform1i(spLabel->u("tex"), 3);
-            
-    extern GLuint panelVAO;
     glBindVertexArray(panelVAO);
     glDrawArrays(GL_TRIANGLES, 0, 6);
     glBindVertexArray(0);
+
+    glDepthFunc(GL_LEQUAL);
+    glDepthMask(GL_FALSE);
+    
     glActiveTexture(GL_TEXTURE0);
     spSkybox->use();
     glm::mat4 skyV = glm::mat4(glm::mat3(V));
@@ -655,8 +657,11 @@ void drawScene(GLFWwindow* window) {
     glDrawArrays(GL_TRIANGLES, 0, 36);
     glBindVertexArray(0);
 
+    
+
     glDepthMask(GL_TRUE);
     glDepthFunc(GL_LESS);    
+    
 
     glfwSwapBuffers(window);
 }

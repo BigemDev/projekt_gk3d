@@ -53,7 +53,7 @@ public:
     void init(const char* fontPath, int texWidth, int texHeight);
     void handleKey(int key);
     void update();
-    GLuint makeUiTexture(std::string);
+    GLuint makeUiTexture(std::string,glm::vec3&);
     bool isFilePanelOpen() { return !viewingFile.empty(); }
     GLuint getTexture() { return screenTex; }
     
