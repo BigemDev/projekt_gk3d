@@ -750,7 +750,8 @@ void FileChart::updateData(const std::vector<FileEntry>& entries, FileExplorer* 
             0,3,4, 3,7,4,
             1,5,2, 2,5,6
         };
-        
+        // note color data here is obsolete, but I didn't have time to remove it after fixing bars
+        // oopsie
         for (int idx : indices) {
             vertexData.push_back(vertices[idx].x);
             vertexData.push_back(vertices[idx].y);
@@ -793,11 +794,14 @@ void FileChart::draw(glm::mat4 P, glm::mat4 V, glm::vec3 centerPos, glm::vec3 ca
         glUniformMatrix4fv(spLambert->u("M"), 1, false, glm::value_ptr(M));
         
         glUniform4f(spLambert->u("lightDir"), 0.5f, 1.0f, 0.3f, 0.0f);
-        glUniform4f(spLambert->u("color"), 1.0f, 1.0f, 1.0f, 1.0f);
         glUniform1i(spLambert->u("shadowMap"), 0);
-        
         glBindVertexArray(vao);
-        glDrawArrays(GL_TRIANGLES, 0, barCount);
+        int i=0;
+        for(const auto& bar : bars) {
+            glUniform4f(spLambert->u("color"), bar.color.r, bar.color.g, bar.color.b, 1.0f);
+            glDrawArrays(GL_TRIANGLES, 6*6*i, 6*6);
+            i++;
+        }
         glBindVertexArray(0);
     }
     

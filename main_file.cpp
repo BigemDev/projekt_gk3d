@@ -89,11 +89,12 @@ CameraModeSettings camPositions[] = {
         //Ratmode
     }
 };
+float y_cam_offset=0.0f;
 void initUITextures(){
     std::string uiText;
     for ( int i = 0; i < 5; i++ ){
         uiText = "Camera mode: " + camPositions[i].viewName;
-        if (i==FREE) uiText += "W,S,A,D to move, mouse to look around";
+        if (i==FREE) uiText += "| W,S,A,D to move, mouse to look around";
         uiText += " | Press 1-5 to switch";
         camPositions[i].uiTex = explorer.makeUiTexture(uiText,camPositions[i].uiScale);
     }
@@ -631,7 +632,8 @@ void drawScene(GLFWwindow* window) {
     
     UIM = glm::rotate(UIM, camYaw+3.14f, glm::vec3(0.0f, 1.0f, 0.0f));
     UIM = glm::rotate(UIM, camPitch, glm::vec3(1.0f, 0.0f, 0.0f));
-    UIM = glm::scale(UIM, camPositions[camMode].uiScale * 0.025f);
+    UIM = glm::translate(UIM, glm::vec3(0.0f,-0.45,0.0f));
+    UIM = glm::scale(UIM, camPositions[camMode].uiScale * 0.04f);
     glUniformMatrix4fv(spLabel->u("P"), 1, false, glm::value_ptr(P));
     glUniformMatrix4fv(spLabel->u("V"), 1, false, glm::value_ptr(V));
     glUniformMatrix4fv(spLabel->u("M"), 1, false, glm::value_ptr(UIM));
